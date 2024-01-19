@@ -102,7 +102,7 @@ VisibleScanline:
 
     lda #2 
     sta VBLANK 
-    lda #28
+    lda #26
     sta Counter 
 Overscan:
     sta WSYNC
@@ -114,6 +114,7 @@ Overscan:
     jmp NextFrame 
 
 ComputeJump subroutine
+    sta WSYNC
     lda Plyr0Jump 
     beq .NotJump
     lda Plyr0JumpVel
@@ -121,15 +122,16 @@ ComputeJump subroutine
 .MovingDown:
     lda Plyr0YPos
     cmp #GroundHeight
-    bcs .AtGround 
+    bcc .AtGround 
     clc 
     adc Plyr0JumpVel
     sta Plyr0YPos
     jmp .NotJump
 .AtGround:
     lda #0
-    sta Plyr0JumpVel
     sta Plyr0Jump
+    lda #1 
+    sta Plyr0JumpVel
     jmp .NotJump
 .MovingUp: 
     lda Plyr0YPos 
@@ -161,6 +163,7 @@ SetHorizonPos subroutine
     rts
 
 JoystickMovement subroutine
+    sta WSYNC 
     lda #%01000000 
     bit SWCHA   
     bne SkipMoveLeft
@@ -182,7 +185,7 @@ SkipMoveRight:
     bmi .NotPressedJump
     lda Plyr0Jump 
     bne .NotPressedJump
-    ldx #1  
+    ldx #1
     stx Plyr0Jump 
 .NotPressedJump:
     rts 
