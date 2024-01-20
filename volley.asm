@@ -17,12 +17,27 @@ Plyr1Jump byte
 Plyr0JumpVel byte 
 Plyr1JumpVel byte 
 
+YBall byte 
+XBall byte 
+YBallVel byte 
+XBallVel byte 
+
 PlayerHeight equ 8 
 JumpHeight equ 30
 GroundHeight equ 15
 NetHeight equ 70
 
 Counter byte 
+
+    MAC DRAW_BALL
+    lda #%00000000
+    cpx YBall 
+    bne .noball 
+    lda #%00000010
+.noball:
+    sta ENABL 
+
+    ENDM 
 
     seg Code 
     org $f000
@@ -53,6 +68,17 @@ Start:
     sta Plyr1XPos 
     ldx #1
     jsr SetHorizonPos
+
+    lda #50
+    sta YBall 
+    lda #35
+    sta XBall 
+    ldx #4 
+    jsr SetHorizonPos 
+
+    lda #1 
+    sta XBallVel
+    sta YBallVel 
 
     sta WSYNC 
     sta HMOVE 
@@ -85,11 +111,18 @@ NextFrame:
     ldx #1
     jsr SetHorizonPos
 
+    lda XBall
+    ldx #4 
+    jsr SetHorizonPos 
+
     sta WSYNC
     sta HMOVE 
 
-    lda #%00000001
+    lda #%00010001
     sta CTRLPF   
+
+    lda #1  
+    sta VDELP0
 
     lda #37 
     sta Counter  
@@ -103,8 +136,12 @@ Underscan:
     lda #96
     sta Counter 
 VisibleScanline:
+    ldx Counter
+    DRAW_BALL   
+    sta WSYNC 
 .AreWeInsidePlayer0:
     lda Counter 
+    pha
     sec 
     sbc Plyr0YPos 
     cmp PlayerHeight
@@ -114,12 +151,11 @@ VisibleScanline:
     tay 
     lda PlayerSprite,y
     ldx #$a3 
-    sta WSYNC 
     sta GRP0
     stx COLUP0
-
+    
 .AreWeInsidePlayer1:
-    lda Counter 
+    pla 
     sec 
     sbc Plyr1YPos 
     cmp PlayerHeight
@@ -129,7 +165,6 @@ VisibleScanline:
     tay 
     lda PlayerSprite,y
     ldx #$30 
-    sta WSYNC 
     sta GRP1
     stx COLUP1
 
@@ -139,10 +174,12 @@ VisibleScanline:
     bcs .NoLand
     cmp #GroundHeight+1
     bcc .DrawLand
+    lda #$00 
+    sta COLUPF 
     lda #%10000000
-    sta PF2 
+    sta PF2     
     jmp .DoneNetLand
-
+    
 .DrawLand
     lda #$ca 
     sta COLUPF 
@@ -179,8 +216,34 @@ Overscan:
     jsr ComputeJump
     ldx #1 
     jsr ComputeJump
+    jsr BallMovement
 
     jmp NextFrame 
+
+BallMovement subroutine
+    lda XBallVel
+    bmi .BallMoveLeft
+    lda XBall 
+    clc 
+    adc XBallVel 
+    sta XBall
+    cmp #156
+    bcc .DoneMovement
+    lda #$ff 
+    sta XBallVel 
+.BallMoveLeft:
+    lda XBall 
+    clc 
+    adc XBallVel
+    sta XBall 
+    cmp #1
+    bcs .DoneMovement 
+    inc XBall
+    lda #1
+    sta XBallVel 
+
+.DoneMovement:
+    rts 
 
 ; x = # of player
 ComputeJump subroutine
