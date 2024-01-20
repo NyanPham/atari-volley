@@ -19,9 +19,8 @@ Plyr1JumpVel byte
 
 PlayerHeight equ 8 
 JumpHeight equ 30
-GroundHeight equ 12
+GroundHeight equ 15
 NetHeight equ 70
-
 
 Counter byte 
 
@@ -89,6 +88,9 @@ NextFrame:
     sta WSYNC
     sta HMOVE 
 
+    lda #%00000001
+    sta CTRLPF   
+
     lda #37 
     sta Counter  
 Underscan:
@@ -130,24 +132,31 @@ VisibleScanline:
     sta WSYNC 
     sta GRP1
     stx COLUP1
-    
-.AreWeInLand:
+
+.AreWeInNetLand:
     lda Counter 
-    cmp #25
+    cmp #NetHeight
     bcs .NoLand
+    cmp #GroundHeight+1
+    bcc .DrawLand
+    lda #%10000000
+    sta PF2 
+    jmp .DoneNetLand
+
+.DrawLand
     lda #$ca 
     sta COLUPF 
     lda #%11111111 
     sta PF0
     sta PF1 
     sta PF2     
-    jmp .DoneLand
-.NoLand:
+    jmp .DoneNetLand
+.NoLand:    
     lda #0
     sta PF0
-    sta PF1 
+    sta PF1
     sta PF2 
-.DoneLand:
+.DoneNetLand:
     dec Counter 
     bne VisibleScanline 
 
@@ -229,7 +238,7 @@ JoystickMovement0 subroutine
     bit SWCHA   
     bne .SkipMoveLeft
     lda Plyr0XPos 
-    cmp #8
+    cmp #3
     bmi .SkipMoveLeft
     dec Plyr0XPos   
 .SkipMoveLeft:
@@ -237,7 +246,7 @@ JoystickMovement0 subroutine
     bit SWCHA   
     bne .SkipMoveRight
     lda Plyr0XPos 
-    cmp #135
+    cmp #65
     bpl .SkipMoveRight
     inc Plyr0XPos  
 .SkipMoveRight:
@@ -257,15 +266,15 @@ JoystickMovement1 subroutine
     bit SWCHA   
     bne .SkipMoveLeft
     lda Plyr1XPos 
-    cmp #8
+    cmp #82
     bmi .SkipMoveLeft
     dec Plyr1XPos   
-.SkipMoveLeft:
+.SkipMoveLeft:  
     lda #%00001000
     bit SWCHA   
     bne .SkipMoveRight
     lda Plyr1XPos 
-    cmp #135
+    cmp #145
     bpl .SkipMoveRight
     inc Plyr1XPos  
 .SkipMoveRight:
