@@ -25,7 +25,7 @@ XBallVel byte
 PlayerHeight equ 8 
 JumpHeight equ 30
 GroundHeight equ 15
-NetHeight equ 70
+NetHeight equ 30
 
 Counter byte 
 
@@ -228,7 +228,7 @@ BallMovement subroutine
     adc XBallVel 
     sta XBall
     cmp #156
-    bcc .DoneMovement
+    bcc .DoneHorizontal
     lda #$ff 
     sta XBallVel 
 .BallMoveLeft:
@@ -237,10 +237,34 @@ BallMovement subroutine
     adc XBallVel
     sta XBall 
     cmp #1
-    bcs .DoneMovement 
+    bcs .DoneHorizontal 
     inc XBall
     lda #1
     sta XBallVel 
+
+.DoneHorizontal:    
+    lda YBallVel 
+    bmi .BallMoveDown
+    lda YBall 
+    clc 
+    adc YBallVel
+    sta YBall 
+    cmp #96
+    bcc .DoneMovement 
+    dec YBall 
+    lda #$ff 
+    sta YBallVel 
+    jmp .DoneMovement 
+.BallMoveDown:
+    lda YBall    
+    clc 
+    adc YBallVel 
+    sta YBall 
+    cmp #GroundHeight 
+    bpl .DoneMovement 
+    inc YBall 
+    lda #1 
+    sta YBallVel 
 
 .DoneMovement:
     rts 
