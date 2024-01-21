@@ -25,6 +25,7 @@ Score0 byte
 Score1 byte 
 FontBuf ds 10 
 Temp byte 
+Random byte 
 
 PlayerHeight equ 8 
 JumpHeight equ 30
@@ -33,7 +34,6 @@ NetHeight equ 30
 ScoreboardHeight equ 10 
 
 Counter byte 
-
     MAC DRAW_BALL
     lda #%00000000
     cpx YBall 
@@ -47,11 +47,13 @@ Counter byte
     org $f000
 Start:
     CLEAN_START 
-    
-    lda #0
-    sta Score0
-    sta Score1
 
+    lda #0  
+    sta Score0
+    sta Score1  
+
+    lda #%11010100
+    sta Random              
 Restart:
     lda #GroundHeight
     sta Plyr0YPos
@@ -75,18 +77,30 @@ Restart:
     ldx #1
     jsr SetHorizonPos
 
-    lda #50
+    lda #90
     sta YBall 
-    lda #77
+
+    jsr GetRandom 
+    adc #50
     sta XBall 
     ldx #4 
     jsr SetHorizonPos 
 
-    lda #1
-    sta YBallVel 
+    ldx #1  
+    jsr GetRandom
+    cmp #30
+    bpl .setYBallVel
+    ldx #$ff   
+.setYBallVel:
+    stx YBallVel 
 
-    lda #1
-    sta XBallVel
+    ldx #1 
+    jsr GetRandom 
+    cmp #30
+    bpl .setXBallVel
+    ldx #$ff
+.setXBallVel:
+    stx XBallVel
 
     sta WSYNC 
     sta HMOVE 
@@ -367,6 +381,11 @@ CheckCollisions subroutine
     adc #1 
     sta Score0,x 
     cld 
+    
+    lda Random
+    eor Score0
+    eor Score1 
+    sta Random 
 
     jmp Restart 
 
@@ -567,6 +586,21 @@ GetBCDBitmap subroutine
     inx 
     dec Temp 
     bne .Loop2 
+    rts     
+
+GetRandom subroutine
+    lda Random
+    asl
+    eor Random
+    asl
+    eor Random
+    asl
+    asl
+    eor Random
+    asl
+    rol Random               ; performs a series of shifts and bit operations
+    lsr
+    lsr                      ; divide the value by 4 with 2 right shifts
     rts 
 
     org $FF00
