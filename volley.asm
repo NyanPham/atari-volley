@@ -1,9 +1,9 @@
     processor 6502 
     include "vcs.h"
     include "macro.h"
-
+    
     seg.u Variables     
-    org $80
+    org $80 
 
 Plyr0YPos byte 
 Plyr1YPos byte
@@ -71,14 +71,16 @@ Start:
 
     lda #50
     sta YBall 
-    lda #35
+    lda #77
     sta XBall 
     ldx #4 
     jsr SetHorizonPos 
 
-    lda #1 
-    sta XBallVel
+    lda #1
     sta YBallVel 
+
+    lda #1
+    sta XBallVel
 
     sta WSYNC 
     sta HMOVE 
@@ -99,10 +101,15 @@ NextFrame:
     sta PF0
     sta PF1
     sta PF2 
+    sta CTRLPF 
+    sta CXCLR 
 
     lda #$83 
     sta COLUP0
 
+    sta WSYNC
+    sta HMCLR   
+    
     lda Plyr0XPos
     ldx #0
     jsr SetHorizonPos
@@ -117,14 +124,17 @@ NextFrame:
 
     sta WSYNC
     sta HMOVE 
-
+    
     lda #%00010001
     sta CTRLPF   
 
+    lda #$00 
+    sta COLUPF 
+
     lda #1  
     sta VDELP0
-
-    lda #37 
+    
+    lda #32
     sta Counter  
 Underscan:
     sta WSYNC 
@@ -153,7 +163,7 @@ VisibleScanline:
     ldx #$a3 
     sta GRP0
     stx COLUP0
-    
+
 .AreWeInsidePlayer1:
     pla 
     sec 
@@ -174,15 +184,22 @@ VisibleScanline:
     bcs .NoLand
     cmp #GroundHeight+1
     bcc .DrawLand
+    lda #%00000001
+    sta CTRLPF 
     lda #$00 
     sta COLUPF 
+    lda #0
+    sta PF0
+    sta PF1 
     lda #%10000000
     sta PF2     
     jmp .DoneNetLand
-    
+
 .DrawLand
     lda #$ca 
     sta COLUPF 
+    lda #%00000001
+    sta CTRLPF 
     lda #%11111111 
     sta PF0
     sta PF1 
@@ -193,6 +210,7 @@ VisibleScanline:
     sta PF0
     sta PF1
     sta PF2 
+    sta CTRLPF 
 .DoneNetLand:
     dec Counter 
     bne VisibleScanline 
@@ -207,7 +225,12 @@ VisibleScanline:
 Overscan:
     sta WSYNC
     dec Counter 
-    bne Overscan 
+    bne Overscan     
+
+    jsr CheckCollisions
+
+    sta WSYNC
+    jsr BallMovement
 
     jsr JoystickMovement0
     jsr JoystickMovement1
@@ -216,11 +239,64 @@ Overscan:
     jsr ComputeJump
     ldx #1 
     jsr ComputeJump
-    jsr BallMovement
-
+        
     jmp NextFrame 
 
+CheckCollisions subroutine
+    lda #%01000000
+    bit CXP0FB  
+    bne .Player0Collision
+    lda #%01000000
+    bit CXP1FB 
+    bne .Player1Collision
+    lda #%10000000
+    bit CXBLPF
+    bne .PlayfieldCollision
+    beq .NoCollisions
+
+.Player0Collision:  
+    lda #1
+    sta YBallVel 
+    bne .NoCollisions
+
+.Player1Collision:
+    lda #1
+    sta YBallVel 
+    bne .NoCollisions 
+
+.PlayfieldCollision:
+    lda YBall 
+    cmp #GroundHeight
+    beq .CountScore
+; Not hit the ground, then check hit the net
+    cmp #NetHeight
+    bpl .BallHitNetTop
+; Not hit top of the net, check hit left or right side of net 
+    lda XBall 
+    cmp #77 
+    bmi .BallHitNetLeft
+; Ball hit right side
+    lda #1 
+    sta XBallVel 
+    jmp .NoCollisions
+.BallHitNetLeft:    
+    lda #$ff 
+    sta XBallVel 
+    jmp .NoCollisions 
+
+.BallHitNetTop:
+    lda #1
+    sta YBallVel 
+    bne .NoCollisions 
+
+.CountScore:
+    jmp Start 
+
+.NoCollisions:  
+    rts 
+
 BallMovement subroutine
+    sta WSYNC 
     lda XBallVel
     bmi .BallMoveLeft
     lda XBall 
@@ -231,6 +307,7 @@ BallMovement subroutine
     bcc .DoneHorizontal
     lda #$ff 
     sta XBallVel 
+    jmp .DoneHorizontal 
 .BallMoveLeft:
     lda XBall 
     clc 
@@ -242,21 +319,22 @@ BallMovement subroutine
     lda #1
     sta XBallVel 
 
-.DoneHorizontal:    
+.DoneHorizontal:  
+    ; Check vertical movement of ball
     lda YBallVel 
     bmi .BallMoveDown
     lda YBall 
     clc 
     adc YBallVel
     sta YBall 
-    cmp #96
+    cmp #95
     bcc .DoneMovement 
     dec YBall 
     lda #$ff 
     sta YBallVel 
     jmp .DoneMovement 
-.BallMoveDown:
-    lda YBall    
+.BallMoveDown:  
+    lda YBall       
     clc 
     adc YBallVel 
     sta YBall 
@@ -284,13 +362,13 @@ ComputeJump subroutine
     adc Plyr0JumpVel,x 
     sta Plyr0YPos,x 
     jmp .NotJump
-.AtGround:
-    lda #0
+.AtGround:  
+    lda #0  
     sta Plyr0Jump,x 
-    lda #1 
+    lda #1      
     sta Plyr0JumpVel,x 
     jmp .NotJump
-.MovingUp: 
+.MovingUp:  
     lda Plyr0YPos,x 
     cmp #GroundHeight+JumpHeight 
     bpl .AtPeak 
@@ -303,7 +381,7 @@ ComputeJump subroutine
     sta Plyr0JumpVel,x 
 .NotJump:
     rts 
-    
+
 SetHorizonPos subroutine
     sta WSYNC 
     sec 
