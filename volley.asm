@@ -1,7 +1,7 @@
     processor 6502 
     include "vcs.h"
     include "macro.h"
-
+    
     seg.u Variables     
     org $80 
 
@@ -355,7 +355,7 @@ CheckCollisions subroutine
     ldy #$ff 
 .SetXVel:   
     sty XBallVel
-            
+
     bne CollisionSound
 
 .PlayfieldCollision:

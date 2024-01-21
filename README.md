@@ -4,7 +4,7 @@
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-
+  
 <!-- [![LinkedIn][linkedin-shield]][linkedin-url] -->
 
 <!-- PROJECT LOGO -->
@@ -16,7 +16,8 @@
 
 <h3 align="center">Nyan's Volley ball</h3>
   <p align="center">
-    Simple Volley ball game in 6502 assembly on Atari 2600
+    Simple Volley ball game in 6502 assembly on Atari 2600.
+    This is my own implementation of making a game in atari without tutorials. The project is simple and not practical in modern world, yet fun and nostalgic for me. I'm not a geek, but programming in assembly language gives me a sense of freedom despite its limitation. 
     <br />
     <a href="https://github.com/NyanPham/atari-volley"><strong>Explore the docs »</strong></a>
     <br />
