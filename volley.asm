@@ -27,6 +27,8 @@ FontBuf ds 10
 Temp byte 
 Random byte 
 
+SoundOn byte 
+
 PlayerHeight equ 8 
 JumpHeight equ 30
 GroundHeight equ 15
@@ -104,7 +106,7 @@ Restart:
 
     sta WSYNC 
     sta HMOVE 
-    sta CXCLR 
+    sta CXCLR   
 
 NextFrame:
     lda #2 
@@ -158,6 +160,8 @@ NextFrame:
     lda Score1 
     ldx #5 
     jsr GetBCDBitmap 
+
+    jsr ProcessSound
 
     lda #00
     sta COLUBK 
@@ -332,13 +336,13 @@ CheckCollisions subroutine
 
 .Player0Collision:
     lda #1
-    sta YBallVel 
-    bne .NoCollisions
+    sta YBallVel
+    bne CollisionSound
 
 .Player1Collision:
     lda #1
     sta YBallVel 
-    bne .NoCollisions 
+    bne CollisionSound 
 
 .PlayfieldCollision:
     lda YBall 
@@ -355,16 +359,16 @@ CheckCollisions subroutine
 ; Ball hit right side
     lda #1 
     sta XBallVel 
-    jmp .NoCollisions
+    jmp CollisionSound
 .BallHitNetLeft:    
     lda #$ff 
     sta XBallVel 
-    jmp .NoCollisions 
+    jmp CollisionSound 
 
 .BallHitNetTop:
     lda #1
     sta YBallVel 
-    bne .NoCollisions 
+    bne CollisionSound 
 
 .CountScore:
     ; Check which player get the score
@@ -382,14 +386,33 @@ CheckCollisions subroutine
     sta Score0,x 
     cld 
     
+    ; Set random value for the next ball position and velocity
     lda Random
     eor Score0
     eor Score1 
     sta Random 
 
+    ; Set wining sound
+    lda #10
+    sta AUDC0
+    lda #7 
+    sta AUDF0 
+    sta AUDV0 
+    lda #$1 
+    sta SoundOn 
+
     jmp Restart 
 
 .NoCollisions:  
+    rts 
+
+CollisionSound subroutine
+    lda #$4 
+    sta AUDC0 
+    sta AUDF0 
+    sta AUDV0 
+    lda #$1 
+    sta SoundOn 
     rts 
 
 BallMovement subroutine
@@ -404,6 +427,7 @@ BallMovement subroutine
     bcc .DoneHorizontal
     lda #$ff 
     sta XBallVel 
+    jsr CollisionSound
     jmp .DoneHorizontal 
 .BallMoveLeft:
     lda XBall 
@@ -415,7 +439,8 @@ BallMovement subroutine
     inc XBall
     lda #1
     sta XBallVel 
-
+    jsr CollisionSound
+    
 .DoneHorizontal:  
     ; Check vertical movement of ball
     lda YBall 
@@ -427,6 +452,7 @@ BallMovement subroutine
     dec YBall 
     lda #$ff 
     sta YBallVel 
+    jsr CollisionSound
 
 .DoneMovement:
     rts 
@@ -602,6 +628,18 @@ GetRandom subroutine
     lsr
     lsr                      ; divide the value by 4 with 2 right shifts
     rts 
+
+ProcessSound subroutine
+    lda SoundOn
+    beq .sound
+    dec SoundOn 
+    bne .sound
+    lda #0
+    sta AUDV0 
+
+.sound:
+    rts 
+
 
     org $FF00
 
