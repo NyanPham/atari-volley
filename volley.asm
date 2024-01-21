@@ -1,7 +1,7 @@
     processor 6502 
     include "vcs.h"
     include "macro.h"
-    
+
     seg.u Variables     
     org $80 
 
@@ -21,6 +21,8 @@ YBall byte
 XBall byte 
 YBallVel byte 
 XBallVel byte 
+Score0 byte 
+Score1 byte 
 
 PlayerHeight equ 8 
 JumpHeight equ 30
@@ -84,6 +86,7 @@ Start:
 
     sta WSYNC 
     sta HMOVE 
+    sta CXCLR 
 
 NextFrame:
     lda #2 
@@ -97,19 +100,17 @@ NextFrame:
     lda #0
     sta VSYNC 
 
-    lda #0
-    sta PF0
+    sta PF0 
     sta PF1
     sta PF2 
     sta CTRLPF 
-    sta CXCLR 
-
+    
     lda #$83 
     sta COLUP0
 
     sta WSYNC
     sta HMCLR   
-    
+
     lda Plyr0XPos
     ldx #0
     jsr SetHorizonPos
@@ -220,16 +221,19 @@ VisibleScanline:
 
     lda #2 
     sta VBLANK 
-    lda #26
+    lda #25
     sta Counter 
 Overscan:
     sta WSYNC
     dec Counter 
     bne Overscan     
 
+    sta WSYNC 
     jsr CheckCollisions
+    sta WSYNC 
+    sta CXCLR 
 
-    sta WSYNC
+    sta WSYNC   
     jsr BallMovement
 
     jsr JoystickMovement0
@@ -239,7 +243,7 @@ Overscan:
     jsr ComputeJump
     ldx #1 
     jsr ComputeJump
-        
+
     jmp NextFrame 
 
 CheckCollisions subroutine
@@ -250,11 +254,11 @@ CheckCollisions subroutine
     bit CXP1FB 
     bne .Player1Collision
     lda #%10000000
-    bit CXBLPF
+    bit CXBLPF  
     bne .PlayfieldCollision
     beq .NoCollisions
 
-.Player0Collision:  
+.Player0Collision:
     lda #1
     sta YBallVel 
     bne .NoCollisions
@@ -267,6 +271,7 @@ CheckCollisions subroutine
 .PlayfieldCollision:
     lda YBall 
     cmp #GroundHeight
+    bmi .CountScore
     beq .CountScore
 ; Not hit the ground, then check hit the net
     cmp #NetHeight
@@ -290,6 +295,21 @@ CheckCollisions subroutine
     bne .NoCollisions 
 
 .CountScore:
+    ; Check which player get the score
+    ldx #0      ; x for player index
+    lda XBall 
+    cmp #77 
+    bcs .PlayerScore   ; ball falls on the right side, so player 0 scores
+    inx                 ; else, player 1 scores
+    
+.PlayerScore:
+    sed 
+    clc 
+    lda Score0,x 
+    adc #1 
+    sta Score0,x 
+    cld 
+
     jmp Start 
 
 .NoCollisions:  
@@ -321,27 +341,14 @@ BallMovement subroutine
 
 .DoneHorizontal:  
     ; Check vertical movement of ball
-    lda YBallVel 
-    bmi .BallMoveDown
     lda YBall 
-    clc 
+    clc     
     adc YBallVel
     sta YBall 
     cmp #95
     bcc .DoneMovement 
     dec YBall 
     lda #$ff 
-    sta YBallVel 
-    jmp .DoneMovement 
-.BallMoveDown:  
-    lda YBall       
-    clc 
-    adc YBallVel 
-    sta YBall 
-    cmp #GroundHeight 
-    bpl .DoneMovement 
-    inc YBall 
-    lda #1 
     sta YBallVel 
 
 .DoneMovement:
