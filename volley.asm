@@ -4,7 +4,7 @@
     
     seg.u Variables     
     org $80 
-
+    
 Plyr0YPos byte 
 Plyr1YPos byte
 
@@ -35,7 +35,6 @@ GroundHeight equ 15
 NetHeight equ 30
 ScoreboardHeight equ 10 
 
-Counter byte 
     MAC DRAW_BALL
     lda #%00000000
     cpx YBall 
@@ -113,9 +112,9 @@ NextFrame:
     sta VBLANK 
     sta VSYNC   
 
-    sta WSYNC
-    sta WSYNC
-    sta WSYNC
+    REPEAT 3
+        sta WSYNC 
+    REPEND
 
     lda #0
     sta VSYNC 
@@ -142,7 +141,6 @@ NextFrame:
     jsr SetHorizonPos 
 
     sta WSYNC 
-    sta WSYNC
     sta HMOVE 
 
     lda #%00010001
@@ -165,19 +163,18 @@ NextFrame:
 
     lda #00
     sta COLUBK 
-
-    ldx #24
+    
+    ldx #30
 Underscan:
     sta WSYNC 
     dex 
     bne Underscan 
     lda #0
     sta VBLANK 
-; Done underscan
 
+; First kernel drawing the scoreboard 
 ; Drawscorboard kernel
-    lda #0
-    sta Counter 
+    ldy #0
     lda #%00010010
     sta CTRLPF 
     lda #$a3
@@ -188,7 +185,7 @@ DrawScoreboard:
     lda #00
     sta COLUBK 
     sta WSYNC 
-    lda Counter
+    tya 
     lsr             
     tax     
     lda FontBuf+0,x 
@@ -196,10 +193,9 @@ DrawScoreboard:
     SLEEP 28
     lda FontBuf+5,x 
     sta PF1 
-    inc Counter
-    lda Counter 
-    cmp #ScoreboardHeight
-    bcc DrawScoreboard
+    iny
+    cpy #ScoreboardHeight
+    bne DrawScoreboard
 
     lda #0
     sta WSYNC 
@@ -220,45 +216,46 @@ WaitEndDrawBoard:
     lda #$f8 
     sta COLUBK
 
-    lda #129-ScoreboardHeight
-    sta Counter 
-VisibleScanline:
-    ldx Counter
+    ldx #126-ScoreboardHeight
+MainScanline:
     DRAW_BALL   
-.AreWeInsidePlayer0:
-    lda Counter 
-    pha
-    sec 
+.ShouldDrawPlayer0:
+    txa 
+    sec     
     sbc Plyr0YPos 
     cmp PlayerHeight
     bcc .DrawPlayer0 
     lda #0 
 .DrawPlayer0:
     tay 
+    lda #$a3 
+    pha 
     lda PlayerSprite,y
-    ldx #$a3 
     sta GRP0
-    stx COLUP0
-
-.AreWeInsidePlayer1:
     pla 
+    sta COLUP0
+
+.ShouldDrawPlayer1:
+    txa  
     sec 
     sbc Plyr1YPos 
     cmp PlayerHeight
     bcc .DrawPlayer1
-    lda #0 
+    lda #0  
 .DrawPlayer1:
     tay 
+    lda #$30 
+    pha 
     lda PlayerSprite,y
-    ldx #$30 
     sta GRP1
-    stx COLUP1
+    pla
+    sta COLUP1
 
 .AreWeInNetLand:
-    lda Counter 
+    txa 
     cmp #NetHeight
     bcs .NoLand
-    cmp #GroundHeight+1
+    cmp #GroundHeight
     bcc .DrawLand
     lda #%00010001
     sta CTRLPF 
@@ -279,7 +276,7 @@ VisibleScanline:
     lda #%11111111 
     sta PF0
     sta PF1 
-    sta PF2     
+    sta PF2 
     jmp .DoneNetLand
 .NoLand:    
     lda #0
@@ -289,19 +286,18 @@ VisibleScanline:
     lda #%00010010
     sta CTRLPF 
 .DoneNetLand:
-    dec Counter 
-    bne VisibleScanline 
-    
+    dex 
+    bne MainScanline 
+
     lda #0
     sta GRP0 
         
     lda #2 
     sta VBLANK 
-    lda #25
-    sta Counter 
+    ldx #25
 Overscan:
     sta WSYNC
-    dec Counter 
+    dex 
     bne Overscan     
 
     sta WSYNC 
@@ -317,7 +313,7 @@ Overscan:
 
     ldx #0 
     jsr ComputeJump
-    ldx #1 
+    inx 
     jsr ComputeJump
 
     jmp NextFrame 
@@ -327,7 +323,6 @@ CheckCollisions subroutine
     lda #%01000000
     bit CXP0FB  
     bne .Player0Collision
-    lda #%01000000
     bit CXP1FB 
     bne .Player1Collision
     lda #%10000000
@@ -346,16 +341,15 @@ CheckCollisions subroutine
     ldy #$ff
 .SetYVel:
     sty YBallVel 
-    
+
     lda Plyr0XPos,x 
-    adc #4 
+    adc #5
     ldy #1 
     cmp XBall 
     bcc .SetXVel 
     ldy #$ff 
 .SetXVel:   
     sty XBallVel
-
     bne CollisionSound
 
 .PlayfieldCollision:
@@ -367,17 +361,15 @@ CheckCollisions subroutine
     cmp #NetHeight
     bpl .BallHitNetTop
 ; Not hit top of the net, check hit left or right side of net 
+    ldx #1
     lda XBall 
     cmp #77 
     bmi .BallHitNetLeft
 ; Ball hit right side
-    lda #1 
-    sta XBallVel 
-    jmp CollisionSound
+    bne .StoreXVel
 .BallHitNetLeft:    
-    lda #$ff 
-    sta XBallVel 
-    jmp CollisionSound 
+    ldx #$ff 
+    bne .StoreXVel 
 
 .BallHitNetTop:
     lda #1
@@ -417,6 +409,9 @@ CheckCollisions subroutine
 
     jmp Restart 
 
+.StoreXVel:
+    stx XBallVel 
+    jmp CollisionSound
 .NoCollisions:  
     rts 
 
@@ -454,14 +449,14 @@ BallMovement subroutine
     lda #1
     sta XBallVel 
     jsr CollisionSound
-    
+
 .DoneHorizontal:  
     ; Check vertical movement of ball
     lda YBall 
     clc     
     adc YBallVel
     sta YBall 
-    cmp #129-ScoreboardHeight
+    cmp #126-ScoreboardHeight
     bcc .DoneMovement 
     dec YBall 
     lda #$ff 
@@ -558,7 +553,7 @@ JoystickMovement1 subroutine
     cmp #82
     bmi .SkipMoveLeft
     dec Plyr1XPos   
-.SkipMoveLeft:  
+.SkipMoveLeft:      
     lda #%00001000
     bit SWCHA   
     bne .SkipMoveRight
@@ -654,11 +649,10 @@ ProcessSound subroutine
 .sound:
     rts 
 
-
     org $FF00
 
 PlayerSprite:
-    .byte #%00000000 
+    .byte #0 
     .byte #%11111111
     .byte #%11111111
     .byte #%11111111
@@ -670,18 +664,6 @@ PlayerSprite:
     .byte #%11111111
     .byte #%11111111
     .byte #%11111111
-
-ColorSprite:
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
-    .byte #$83 
 
 ; Bitmap pattern for digits
 DigitsBitmap ;;{w:8,h:5,count:10,brev:1};;
