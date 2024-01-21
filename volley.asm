@@ -41,9 +41,8 @@ Counter byte
     lda #%00000010
 .noball:
     sta ENABL 
-
     ENDM 
-
+    
     seg Code 
     org $f000
 Start:
@@ -110,9 +109,6 @@ NextFrame:
     sta PF2
     lda #%00010010
     sta CTRLPF 
-    
-    lda #$83 
-    sta COLUP0
 
     sta WSYNC
     sta HMCLR   
@@ -166,9 +162,9 @@ Underscan:
     sta Counter 
     lda #%00010010
     sta CTRLPF 
-    lda #$48
+    lda #$a3
     sta COLUP0 
-    lda #$a8
+    lda #$30
     sta COLUP1 
 DrawScoreboard:
     lda #00
@@ -178,8 +174,8 @@ DrawScoreboard:
     lsr             
     tax     
     lda FontBuf+0,x 
-    sta PF1 
-    SLEEP 28 
+    sta PF1
+    SLEEP 28
     lda FontBuf+5,x 
     sta PF1 
     inc Counter
@@ -193,7 +189,7 @@ DrawScoreboard:
     lda #%00010100
     sta CTRLPF 
 
-    ldy #5  
+    ldy #5      
 WaitEndDrawBoard:
     sta WSYNC 
     dey 
@@ -248,7 +244,7 @@ VisibleScanline:
     bcc .DrawLand
     lda #%00010001
     sta CTRLPF 
-    lda #$00 
+    lda #$00    
     sta COLUPF 
     lda #0
     sta PF0
