@@ -53,6 +53,7 @@
 <!-- ABOUT THE PROJECT -->
 
 ## About The Project
+![atari-volley](https://github.com/NyanPham/atari-volley/assets/93678376/c21e7429-dc50-4535-b2dd-e1704ebec0e8)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
