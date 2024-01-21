@@ -23,11 +23,14 @@ YBallVel byte
 XBallVel byte 
 Score0 byte 
 Score1 byte 
+FontBuf ds 10 
+Temp byte 
 
 PlayerHeight equ 8 
 JumpHeight equ 30
 GroundHeight equ 15
 NetHeight equ 30
+ScoreboardHeight equ 10 
 
 Counter byte 
 
@@ -45,10 +48,12 @@ Counter byte
     org $f000
 Start:
     CLEAN_START 
+    
+    lda #0
+    sta Score0
+    sta Score1
 
-    lda #$f8 
-    sta COLUBK 
-
+Restart:
     lda #GroundHeight
     sta Plyr0YPos
     sta Plyr1YPos 
@@ -56,7 +61,7 @@ Start:
     lda #1  
     sta Plyr0JumpVel 
     sta Plyr1JumpVel 
-    
+
     lda #0
     sta Plyr0Jump
     sta Plyr1Jump   
@@ -102,7 +107,8 @@ NextFrame:
 
     sta PF0 
     sta PF1
-    sta PF2 
+    sta PF2
+    lda #%00010010
     sta CTRLPF 
     
     lda #$83 
@@ -123,9 +129,10 @@ NextFrame:
     ldx #4 
     jsr SetHorizonPos 
 
+    sta WSYNC 
     sta WSYNC
     sta HMOVE 
-    
+
     lda #%00010001
     sta CTRLPF   
 
@@ -134,22 +141,76 @@ NextFrame:
 
     lda #1  
     sta VDELP0
-    
-    lda #32
-    sta Counter  
+
+    lda Score0 
+    ldx #0
+    jsr GetBCDBitmap
+    lda Score1 
+    ldx #5 
+    jsr GetBCDBitmap 
+
+    lda #00
+    sta COLUBK 
+
+    ldx #24
 Underscan:
     sta WSYNC 
-    dec Counter
+    dex 
     bne Underscan 
     lda #0
     sta VBLANK 
 ; Done underscan
-    lda #96
+
+; Drawscorboard kernel
+    lda #0
+    sta Counter 
+    lda #%00010010
+    sta CTRLPF 
+    lda #$48
+    sta COLUP0 
+    lda #$a8
+    sta COLUP1 
+DrawScoreboard:
+    lda #00
+    sta COLUBK 
+    sta WSYNC 
+    lda Counter
+    lsr             
+    tax     
+    lda FontBuf+0,x 
+    sta PF1 
+    SLEEP 28 
+    lda FontBuf+5,x 
+    sta PF1 
+    inc Counter
+    lda Counter 
+    cmp #ScoreboardHeight
+    bcc DrawScoreboard
+
+    lda #0
+    sta WSYNC 
+    sta PF1 
+    lda #%00010100
+    sta CTRLPF 
+
+    ldy #5  
+WaitEndDrawBoard:
+    sta WSYNC 
+    dey 
+    bne WaitEndDrawBoard
+    lda #0
+    sta WSYNC 
+    sta PF1 
+    lda #%00010100
+    sta CTRLPF 
+    lda #$f8 
+    sta COLUBK
+
+    lda #129-ScoreboardHeight
     sta Counter 
 VisibleScanline:
     ldx Counter
     DRAW_BALL   
-    sta WSYNC 
 .AreWeInsidePlayer0:
     lda Counter 
     pha
@@ -185,13 +246,13 @@ VisibleScanline:
     bcs .NoLand
     cmp #GroundHeight+1
     bcc .DrawLand
-    lda #%00000001
+    lda #%00010001
     sta CTRLPF 
     lda #$00 
     sta COLUPF 
     lda #0
     sta PF0
-    sta PF1 
+    sta PF1     
     lda #%10000000
     sta PF2     
     jmp .DoneNetLand
@@ -199,7 +260,7 @@ VisibleScanline:
 .DrawLand
     lda #$ca 
     sta COLUPF 
-    lda #%00000001
+    lda #%00010001
     sta CTRLPF 
     lda #%11111111 
     sta PF0
@@ -211,14 +272,15 @@ VisibleScanline:
     sta PF0
     sta PF1
     sta PF2 
+    lda #%00010010
     sta CTRLPF 
 .DoneNetLand:
     dec Counter 
     bne VisibleScanline 
-
+    
     lda #0
     sta GRP0 
-
+        
     lda #2 
     sta VBLANK 
     lda #25
@@ -301,7 +363,7 @@ CheckCollisions subroutine
     cmp #77 
     bcs .PlayerScore   ; ball falls on the right side, so player 0 scores
     inx                 ; else, player 1 scores
-    
+
 .PlayerScore:
     sed 
     clc 
@@ -310,7 +372,7 @@ CheckCollisions subroutine
     sta Score0,x 
     cld 
 
-    jmp Start 
+    jmp Restart 
 
 .NoCollisions:  
     rts 
@@ -345,7 +407,7 @@ BallMovement subroutine
     clc     
     adc YBallVel
     sta YBall 
-    cmp #95
+    cmp #129-ScoreboardHeight
     bcc .DoneMovement 
     dec YBall 
     lda #$ff 
@@ -460,6 +522,59 @@ JoystickMovement1 subroutine
 .NotPressedJump:
     rts 
 
+; Fetches bitmap data for two digits of a 
+; BCD-encoded number, storing it in addresses 
+; FontBuf+x to FontBuf+4+x 
+GetBCDBitmap subroutine
+; Fetch first bytes for 1st digit
+    sta WSYNC 
+    pha 
+    and #$0f 
+    sta Temp 
+    asl 
+    asl 
+    adc Temp 
+    tay 
+    lda #5 
+    sta Temp 
+.Loop1:
+    lda DigitsBitmap,y 
+    and #$0f 
+    sta FontBuf,x 
+    iny 
+    inx 
+    dec Temp 
+    bne .Loop1 
+; Now do the 2nd digit
+    pla 
+    lsr 
+    lsr 
+    lsr 
+    lsr 
+    sta Temp 
+    asl
+    asl 
+    adc Temp 
+    tay 
+    txa 
+    sec 
+    sbc #5 
+    tax 
+    lda #5 
+    sta Temp 
+.Loop2:
+    lda DigitsBitmap,y 
+    and #$f0 
+    ora FontBuf,x 
+    sta FontBuf,x 
+    iny 
+    inx 
+    dec Temp 
+    bne .Loop2 
+    rts 
+
+    org $FF00
+
 PlayerSprite:
     .byte #%00000000 
     .byte #%11111111
@@ -483,6 +598,20 @@ ColorSprite:
     .byte #$83 
     .byte #$83 
     .byte #$83 
+
+; Bitmap pattern for digits
+DigitsBitmap ;;{w:8,h:5,count:10,brev:1};;
+    .byte $EE,$AA,$AA,$AA,$EE
+    .byte $22,$22,$22,$22,$22
+    .byte $EE,$22,$EE,$88,$EE
+    .byte $EE,$22,$66,$22,$EE
+    .byte $AA,$AA,$EE,$22,$22
+    .byte $EE,$88,$EE,$22,$EE
+    .byte $EE,$88,$EE,$AA,$EE
+    .byte $EE,$22,$22,$22,$22
+    .byte $EE,$AA,$EE,$AA,$EE
+    .byte $EE,$AA,$EE,$22,$EE
+;;end
 
     org $fffc 
     .word Start
