@@ -29,7 +29,7 @@ Random byte
 
 SoundOn byte 
 
-PlayerHeight equ 8 
+PlayerHeight equ 10
 JumpHeight equ 30
 GroundHeight equ 15
 NetHeight equ 30
@@ -323,6 +323,7 @@ Overscan:
     jmp NextFrame 
 
 CheckCollisions subroutine
+    ldx #0                  ; index for player collision
     lda #%01000000
     bit CXP0FB  
     bne .Player0Collision
@@ -334,15 +335,28 @@ CheckCollisions subroutine
     bne .PlayfieldCollision
     beq .NoCollisions
 
-.Player0Collision:
-    lda #1
-    sta YBallVel
-    bne CollisionSound
-
 .Player1Collision:
-    lda #1
-    sta YBallVel 
-    bne CollisionSound 
+    ldx #1 
+.Player0Collision:  
+    lda Plyr0YPos,x
+    adc #PlayerHeight/2 
+    ldy #1 
+    cmp YBall 
+    bcc .SetYVel
+    ldy #$ff
+.SetYVel:
+    sty YBallVel 
+    
+    lda Plyr0XPos,x 
+    adc #4 
+    ldy #1 
+    cmp XBall 
+    bcc .SetXVel 
+    ldy #$ff 
+.SetXVel:   
+    sty XBallVel
+            
+    bne CollisionSound
 
 .PlayfieldCollision:
     lda YBall 
@@ -645,6 +659,8 @@ ProcessSound subroutine
 
 PlayerSprite:
     .byte #%00000000 
+    .byte #%11111111
+    .byte #%11111111
     .byte #%11111111
     .byte #%11111111
     .byte #%11111111
