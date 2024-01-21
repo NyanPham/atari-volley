@@ -80,15 +80,30 @@ You can find all 3 files from the repository:
 To run the game, you need to use an Atari Emulator. Stella([https://stella-emu.github.io/downloads.html](https://stella-emu.github.io/downloads.html)) is recommended.
 
 ### Installation
-
+Note: This installation is for you running the game on Stella only. You can run the game on Web Emulator as well.
 1. Clone the repo
     ```sh
     git clone https://github.com/NyanPham/atari-volley.git
     ```
-2. Install NPM packages
+2. Compile the asm
     ```sh
-    ./dasm -f3 -v0 -o"cart.bin"
+    ./dasm volley.asm -f3 -v0 -o"cart.bin"
     ``` 
+
+### How to run the game
+We have 2 ways:
+1. Local emulator: Open the Stella emulator and run the cart.bin file that we have generated from the installation above.
+2. Web emulator :
+  - Go to this site: [https://www.henryschmale.org/apps/atari2600ide/](https://www.henryschmale.org/apps/atari2600ide/)
+  - Copy source code in file "volley.asm", paste in the text field of the site, then click "Run code". 
+
+### Player controls:
+1. Local emulator:
+  Player 1: Press left/right arrows to move, space to jump
+  Player 2: Press G/J keys to move, F to jump
+1. Web emulator:  
+  Player 1: Press left/right arrows to move, space to jump
+  Player 2: Press F/H keys to move, . to jump
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
