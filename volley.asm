@@ -25,15 +25,21 @@ Score0 byte
 Score1 byte 
 FontBuf ds 10 
 Temp byte 
+TempP0 byte
+TempP1 byte
 Random byte 
 
 SoundOn byte 
 
-PlayerHeight equ 10
-JumpHeight equ 30
+PlayerHeight equ 15
+JumpHeight equ 40
 GroundHeight equ 15
-NetHeight equ 30
+NetHeight equ 35
 ScoreboardHeight equ 10 
+ScoreboardPadding equ 5
+ActiveHeight equ 162
+NetStart equ 90 
+BasePlayerYPos equ #0-#ActiveHeight+#PlayerHeight
 
     MAC DRAW_BALL
     lda #%00000000
@@ -42,8 +48,8 @@ ScoreboardHeight equ 10
     lda #%00000010
 .noball:
     sta ENABL 
-    ENDM 
-    
+    ENDM    
+
     seg Code 
     org $f000
 Start:
@@ -56,7 +62,7 @@ Start:
     lda #%11010100
     sta Random              
 Restart:
-    lda #GroundHeight
+    lda #BasePlayerYPos
     sta Plyr0YPos
     sta Plyr1YPos 
 
@@ -106,7 +112,6 @@ Restart:
     sta WSYNC 
     sta HMOVE 
     sta CXCLR   
-
 NextFrame:
     lda #2 
     sta VBLANK 
@@ -124,6 +129,7 @@ NextFrame:
     sta PF2
     lda #%00010010
     sta CTRLPF 
+    sta HMBL
 
     sta WSYNC
     sta HMCLR   
@@ -149,7 +155,7 @@ NextFrame:
     lda #$00 
     sta COLUPF 
 
-    lda #1  
+    lda #0    
     sta VDELP0
 
     lda Score0 
@@ -160,6 +166,11 @@ NextFrame:
     jsr GetBCDBitmap 
 
     jsr ProcessSound
+
+    lda Plyr0YPos
+    sta TempP0
+    lda Plyr1YPos
+    sta TempP1
 
     lda #00
     sta COLUBK 
@@ -181,6 +192,7 @@ Underscan:
     sta COLUP0 
     lda #$30
     sta COLUP1 
+ 
 DrawScoreboard:
     lda #00
     sta COLUBK 
@@ -201,9 +213,9 @@ DrawScoreboard:
     sta WSYNC 
     sta PF1 
     lda #%00010100
-    sta CTRLPF 
+    sta CTRLPF  
 
-    ldy #5      
+    ldy #ScoreboardPadding     
 WaitEndDrawBoard:
     sta WSYNC 
     dey 
@@ -216,59 +228,64 @@ WaitEndDrawBoard:
     lda #$f8 
     sta COLUBK
 
-    ldx #126-ScoreboardHeight
-MainScanline:
-    DRAW_BALL   
-.ShouldDrawPlayer0:
-    txa 
-    sec     
-    sbc Plyr0YPos 
-    cmp PlayerHeight
-    bcc .DrawPlayer0 
-    lda #0 
-.DrawPlayer0:
-    tay 
-    lda #$a3 
-    pha 
-    lda PlayerSprite,y
-    sta GRP0
-    pla 
-    sta COLUP0
-
-.ShouldDrawPlayer1:
-    txa  
-    sec 
-    sbc Plyr1YPos 
-    cmp PlayerHeight
-    bcc .DrawPlayer1
-    lda #0  
-.DrawPlayer1:
-    tay 
-    lda #$30 
-    pha 
-    lda PlayerSprite,y
-    sta GRP1
-    pla
-    sta COLUP1
-
-.AreWeInNetLand:
-    txa 
-    cmp #NetHeight
-    bcs .NoLand
-    cmp #GroundHeight
-    bcc .DrawLand
-    lda #%00010001
-    sta CTRLPF 
-    lda #$00    
-    sta COLUPF 
     lda #0
     sta PF0
-    sta PF1     
+    sta PF1   
+    sta PF2 
+    lda #%00010001
+    sta CTRLPF
+    lda #$00    
+    sta COLUPF 
+        
+    ldx #ActiveHeight
+ActiveKernelLoop:
+    lda #%00000000
+    cpx YBall 
+    bne .noball 
+    lda #%00000010
+.noball:
+    sta ENABL 
+
+.AreWeInNet:
+    cpx #NetHeight
+    bcs .NoNet 
     lda #%10000000
     sta PF2     
-    jmp .DoneNetLand
+.NoNet:
 
-.DrawLand
+.ShouldDrawPlayer0:
+    lda #PlayerHeight 
+    sec
+    isb TempP0 
+    bcs .DrawP0
+    lda #0
+.DrawP0:
+    tay 
+    lda PlayerSprite,y 
+    sta GRP0 
+    
+.ShouldDrawPlayer1:
+    lda #PlayerHeight 
+    sec
+    isb TempP1
+    bcs .DrawP1
+    lda #0
+.DrawP1:
+    tay     
+    lda PlayerSprite,y 
+    sta WSYNC 
+    sta GRP1
+
+    dex 
+    bne ActiveKernelLoop 
+
+    lda #0
+    sta GRP0
+    sta GRP1
+
+    ldx #GroundHeight
+DrawLand:
+    sta WSYNC 
     lda #$ca 
     sta COLUPF 
     lda #%00010001
@@ -277,24 +294,12 @@ MainScanline:
     sta PF0
     sta PF1 
     sta PF2 
-    jmp .DoneNetLand
-.NoLand:    
-    lda #0
-    sta PF0
-    sta PF1
-    sta PF2 
-    lda #%00010010
-    sta CTRLPF 
-.DoneNetLand:
     dex 
-    bne MainScanline 
+    bne DrawLand 
 
-    lda #0
-    sta GRP0 
-        
     lda #2 
     sta VBLANK 
-    ldx #25
+    ldx #26
 Overscan:
     sta WSYNC
     dex 
@@ -329,17 +334,11 @@ CheckCollisions subroutine
     bit CXBLPF  
     bne .PlayfieldCollision
     beq .NoCollisions
-
+        
 .Player1Collision:
     ldx #1 
 .Player0Collision:  
-    lda Plyr0YPos,x
-    adc #PlayerHeight/2 
     ldy #1 
-    cmp YBall 
-    bcc .SetYVel
-    ldy #$ff
-.SetYVel:
     sty YBallVel 
 
     lda Plyr0XPos,x 
@@ -391,7 +390,7 @@ CheckCollisions subroutine
     adc #1 
     sta Score0,x 
     cld 
-    
+
     ; Set random value for the next ball position and velocity
     lda Random
     eor Score0
@@ -450,13 +449,13 @@ BallMovement subroutine
     sta XBallVel 
     jsr CollisionSound
 
-.DoneHorizontal:  
+.DoneHorizontal:    
     ; Check vertical movement of ball
     lda YBall 
     clc     
     adc YBallVel
     sta YBall 
-    cmp #126-ScoreboardHeight
+    cmp #ActiveHeight 
     bcc .DoneMovement 
     dec YBall 
     lda #$ff 
@@ -466,7 +465,7 @@ BallMovement subroutine
 .DoneMovement:
     rts 
 
-; x = # of player
+; x = # of player   
 ComputeJump subroutine
     sta WSYNC
     lda Plyr0Jump,x  
@@ -475,7 +474,7 @@ ComputeJump subroutine
     bpl .MovingUp
 .MovingDown:
     lda Plyr0YPos,x
-    cmp #GroundHeight
+    cmp #BasePlayerYPos
     bcc .AtGround 
     clc 
     adc Plyr0JumpVel,x 
@@ -489,7 +488,7 @@ ComputeJump subroutine
     jmp .NotJump
 .MovingUp:  
     lda Plyr0YPos,x 
-    cmp #GroundHeight+JumpHeight 
+    cmp #BasePlayerYPos+JumpHeight 
     bpl .AtPeak 
     clc     
     adc Plyr0JumpVel,x 
@@ -664,6 +663,10 @@ PlayerSprite:
     .byte #%11111111
     .byte #%11111111
     .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
+    .byte #%11111111
 
 ; Bitmap pattern for digits
 DigitsBitmap ;;{w:8,h:5,count:10,brev:1};;
@@ -678,7 +681,7 @@ DigitsBitmap ;;{w:8,h:5,count:10,brev:1};;
     .byte $EE,$AA,$EE,$AA,$EE
     .byte $EE,$AA,$EE,$22,$EE
 ;;end
-
+    
     org $fffc 
     .word Start
     .word Start 
