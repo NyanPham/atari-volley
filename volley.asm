@@ -27,28 +27,22 @@ FontBuf ds 10
 Temp byte 
 TempP0 byte
 TempP1 byte
-Random byte 
+TempBall byte 
+Random byte     
+Colup0 byte
 
-SoundOn byte 
 
-PlayerHeight equ 15
+SoundOn byte    
+
+PlayerHeight equ 20
 JumpHeight equ 40
 GroundHeight equ 15
 NetHeight equ 35
 ScoreboardHeight equ 10 
 ScoreboardPadding equ 5
-ActiveHeight equ 162
+MainKernelHeight equ 162
 NetStart equ 90 
-BasePlayerYPos equ #0-#ActiveHeight+#PlayerHeight
-
-    MAC DRAW_BALL
-    lda #%00000000
-    cpx YBall 
-    bne .noball 
-    lda #%00000010
-.noball:
-    sta ENABL 
-    ENDM    
+BasePlayerYPos equ #0-#MainKernelHeight+#PlayerHeight
 
     seg Code 
     org $f000
@@ -84,7 +78,8 @@ Restart:
     ldx #1
     jsr SetHorizonPos
 
-    lda #90
+    jsr GetRandom 
+    adc #50
     sta YBall 
 
     jsr GetRandom 
@@ -171,6 +166,8 @@ NextFrame:
     sta TempP0
     lda Plyr1YPos
     sta TempP1
+    lda YBall
+    sta TempBall
 
     lda #00
     sta COLUBK 
@@ -227,7 +224,7 @@ WaitEndDrawBoard:
     sta CTRLPF 
     lda #$f8 
     sta COLUBK
-
+    
     lda #0
     sta PF0
     sta PF1   
@@ -236,9 +233,10 @@ WaitEndDrawBoard:
     sta CTRLPF
     lda #$00    
     sta COLUPF 
-        
-    ldx #ActiveHeight
+
+    ldx #MainKernelHeight
 ActiveKernelLoop:
+; Check ball Y position
     lda #%00000000
     cpx YBall 
     bne .noball 
@@ -262,7 +260,7 @@ ActiveKernelLoop:
 .DrawP0:
     tay 
     lda PlayerSprite,y 
-    sta GRP0 
+    sta GRP0
     
 .ShouldDrawPlayer1:
     lda #PlayerHeight 
@@ -339,9 +337,24 @@ CheckCollisions subroutine
     ldx #1 
 .Player0Collision:  
     ldy #1 
+    lda Plyr0YPos,x 
+    sec  
+    sbc #PlayerHeight
+    clc 
+    adc #MainKernelHeight 
+    sta Temp 
+    lda #0
+    sec     
+    sbc Temp 
+    clc     
+    adc #PlayerHeight/2 
+    cmp YBall 
+    bcc .SetYBallVel  
+    ldy #$ff 
+.SetYBallVel:
     sty YBallVel 
-
-    lda Plyr0XPos,x 
+    
+    lda Plyr0XPos,x     
     adc #5
     ldy #1 
     cmp XBall 
@@ -455,7 +468,7 @@ BallMovement subroutine
     clc     
     adc YBallVel
     sta YBall 
-    cmp #ActiveHeight 
+    cmp #MainKernelHeight 
     bcc .DoneMovement 
     dec YBall 
     lda #$ff 
@@ -524,6 +537,8 @@ JoystickMovement0 subroutine
     cmp #3
     bmi .SkipMoveLeft
     dec Plyr0XPos   
+    lda #0
+    sta REFP0
 .SkipMoveLeft:
     lda #%10000000  
     bit SWCHA   
@@ -532,6 +547,8 @@ JoystickMovement0 subroutine
     cmp #65
     bpl .SkipMoveRight
     inc Plyr0XPos  
+    lda #%1000
+    sta REFP0
 .SkipMoveRight:
 ; Check if player jumps 
     lda INPT4 
@@ -552,7 +569,9 @@ JoystickMovement1 subroutine
     cmp #82
     bmi .SkipMoveLeft
     dec Plyr1XPos   
-.SkipMoveLeft:      
+    lda #0
+    sta REFP1
+.SkipMoveLeft:       
     lda #%00001000
     bit SWCHA   
     bne .SkipMoveRight
@@ -560,6 +579,8 @@ JoystickMovement1 subroutine
     cmp #145
     bpl .SkipMoveRight
     inc Plyr1XPos  
+    lda #%1000
+    sta REFP1
 .SkipMoveRight:
 ; Check if player jumps 
     lda INPT5
@@ -621,7 +642,7 @@ GetBCDBitmap subroutine
     dec Temp 
     bne .Loop2 
     rts     
-
+    
 GetRandom subroutine
     lda Random
     asl
@@ -652,21 +673,49 @@ ProcessSound subroutine
 
 PlayerSprite:
     .byte #0 
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
-    .byte #%11111111
+    .byte %00010010
+    .byte %00010010
+    .byte %00010010
+    .byte %00010010
+    .byte %00011110
+    .byte %00011110
+    .byte %01111110
+    .byte %01111110
+    .byte %11111110
+    .byte %11111110
+    .byte %11111110
+    .byte %11111110
+    .byte %10100010
+    .byte %10100010
+    .byte %11100010
+    .byte %11100010
+    .byte %00100000
+    .byte %00100000
+    .byte %00100000
+    .byte %00100000
+
+ColorSprite:
+    .byte #0                    ; 11 bytes
+    .byte #$0E 
+    .byte #$0E 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$2A 
+    .byte #$0E 
+    .byte #$0E 
 
 ; Bitmap pattern for digits
 DigitsBitmap ;;{w:8,h:5,count:10,brev:1};;
