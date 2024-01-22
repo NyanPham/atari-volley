@@ -217,22 +217,19 @@ WaitEndDrawBoard:
     sta WSYNC 
     dey 
     bne WaitEndDrawBoard
+
     lda #0
     sta WSYNC 
-    sta PF1 
-    lda #%00010100
-    sta CTRLPF 
-    lda #$f8 
-    sta COLUBK
-    
-    lda #0
     sta PF0
     sta PF1   
     sta PF2 
+    lda #$cf
+    sta COLUBK
+    lda #$f7 
+    sta COLUPF 
+
     lda #%00010001
     sta CTRLPF
-    lda #$00    
-    sta COLUPF 
 
     ldx #MainKernelHeight
 ActiveKernelLoop:
@@ -282,9 +279,9 @@ ActiveKernelLoop:
     sta GRP1
 
     ldx #GroundHeight
-DrawLand:
+DrawGround:
     sta WSYNC 
-    lda #$ca 
+    lda #$ff
     sta COLUPF 
     lda #%00010001
     sta CTRLPF 
@@ -293,7 +290,7 @@ DrawLand:
     sta PF1 
     sta PF2 
     dex 
-    bne DrawLand 
+    bne DrawGround 
 
     lda #2 
     sta VBLANK 
