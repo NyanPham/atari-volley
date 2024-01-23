@@ -328,7 +328,7 @@ CheckCollisions subroutine
     lda #%10000000
     bit CXBLPF  
     bne .PlayfieldCollision
-    beq .NoCollisions
+    jmp .NoCollisions
         
 .Player1Collision:
     ldx #1 
@@ -343,14 +343,14 @@ CheckCollisions subroutine
     lda #0
     sec     
     sbc Temp 
-    clc     
+    sec      
     adc #PlayerHeight/2 
     cmp YBall 
     bcc .SetYBallVel  
-    ldy #$ff 
+    ldy #0
 .SetYBallVel:
     sty YBallVel 
-    
+
     lda Plyr0XPos,x     
     adc #5
     ldy #1 
@@ -405,6 +405,8 @@ CheckCollisions subroutine
     lda Random
     eor Score0
     eor Score1 
+    eor Plyr0XPos
+    eor Plyr1XPos
     sta Random 
 
     ; Set wining sound
@@ -420,6 +422,12 @@ CheckCollisions subroutine
 
 .StoreXVel:
     stx XBallVel 
+
+    lda YBallVel 
+    bne .NotGravity
+    lda #$ff
+    sta YBallVel 
+.NotGravity:
     jmp CollisionSound
 .NoCollisions:  
     rts 
@@ -445,6 +453,11 @@ BallMovement subroutine
     bcc .DoneHorizontal
     lda #$ff 
     sta XBallVel 
+    lda YBallVel 
+    bne .NotGravity
+    lda #$ff
+    sta YBallVel 
+.NotGravity:
     jsr CollisionSound
     jmp .DoneHorizontal 
 .BallMoveLeft:
@@ -457,9 +470,15 @@ BallMovement subroutine
     inc XBall
     lda #1
     sta XBallVel 
+    lda YBallVel 
+    bne .NotGravity2
+    lda #$ff
+    sta YBallVel 
+.NotGravity2:
     jsr CollisionSound
 
 .DoneHorizontal:    
+    
     ; Check vertical movement of ball
     lda YBall 
     clc     
